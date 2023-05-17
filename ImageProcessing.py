@@ -29,8 +29,6 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
     :param path: file path
     :return: message (Failed or Success)
     """
-
-
     # resize shape
     widgh = 1000
     height = 1000
