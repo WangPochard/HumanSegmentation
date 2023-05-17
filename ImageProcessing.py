@@ -23,10 +23,10 @@ def get_json_files(path):
 
     png_files = glob.glob(os.path.join(path, "*.png"))
     files_name = [os.path.basename(file_name) for file_name in png_files]
-    df_FileName = pd.DataFrame(pd.Series(files_name), columns=["src"])
-    df_FileName["masked"] = df_FileName["src"]
-    df_FileName["src"] = df_FileName["src"].apply(lambda x: f"0_{x}")
-    df_FileName["masked"] = df_FileName["masked"].apply(lambda x: f"1_{x}")
+    df_FileName = pd.DataFrame(pd.Series(files_name), columns=["img_0"])
+    df_FileName["img_1"] = df_FileName["img_0"]
+    df_FileName["img_0"] = df_FileName["img_0"].apply(lambda x: f"0_{x}")
+    df_FileName["img_1"] = df_FileName["img_1"].apply(lambda x: f"1_{x}")
     print(df_FileName)
     return json_files, df_FileName
 
@@ -37,6 +37,7 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
     :param path: file path
     :return: message (Failed or Success)
     """
+    fileName = str(src_JsonParam["imagePath"].iloc[0])
     # resize shape
     widgh = 1000
     height = 1000
@@ -49,7 +50,6 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
         # Create 一個 value為0的 img_mat
         img_zero = np.zeros(src_img.shape, dtype=np.uint8)
         masked_img = cv2.fillPoly(img_zero, [arr_pts], color=(0, 255, 0))
-        fileName = str(src_JsonParam["imagePath"].iloc[0])
         # print(fileName)
 # Processing Steps
     # 1. resize image
@@ -82,6 +82,7 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
 
         msg = "Success!!!"
     except:
+        print(f"{fileName}\t{src_JsonParam.columns}\t{src_JsonParam['shapes'].iloc[0]}")
         msg = "Failed!!!"
     return msg
 
@@ -91,16 +92,16 @@ if __name__ == "__main__":
     process_path = f"{os.getcwd()}/resize_dataset/"
     files_path, files_name = get_json_files(path)
     files_name.to_csv(f"{process_path}FilesName.csv", encoding="utf_8_sig", index=False)
-    print(files_path)
+    # print(files_path)
     for file_path in files_path:
-        print(file_path)
+        # print(file_path)
         f = open(file=file_path)
         json_detail = json.load(f)
         df_json_detail = pd.json_normalize(json_detail)  # JsonParam : json_detail
-        print(df_json_detail)
+        # print(df_json_detail)
         img = cv2.imread(file_path.replace(".json", ".png"))
         msg = MaskedImage_Save(img, df_json_detail, process_path)
-        print(msg)
+        # print(msg)
 # print(df)
 # print(df.columns)
 #
