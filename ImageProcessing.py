@@ -20,7 +20,15 @@ target_path = f"{os.getcwd()}/resize_dataset/"
 def get_json_files(path):
     search_path = os.path.join(path, '*.json')
     json_files = glob.glob(search_path)
-    return json_files
+
+    png_files = glob.glob(os.path.join(path, "*.png"))
+    files_name = [os.path.basename(file_name) for file_name in png_files]
+    df_FileName = pd.DataFrame(pd.Series(files_name), columns=["src"])
+    df_FileName["masked"] = df_FileName["src"]
+    df_FileName["src"] = df_FileName["src"].apply(lambda x: f"0_{x}")
+    df_FileName["masked"] = df_FileName["masked"].apply(lambda x: f"1_{x}")
+    print(df_FileName)
+    return json_files, df_FileName
 
 def MaskedImage_Save(src_img, src_JsonParam, path):
     """
@@ -81,7 +89,9 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
 if __name__ == "__main__":
     path = f"{os.getcwd()}/dataset/"
     process_path = f"{os.getcwd()}/resize_dataset/"
-    files_path = get_json_files(path)
+    files_path, files_name = get_json_files(path)
+    files_name.to_csv(f"{process_path}FilesName.csv", encoding="utf_8_sig", index=False)
+    print(files_path)
     for file_path in files_path:
         print(file_path)
         f = open(file=file_path)
