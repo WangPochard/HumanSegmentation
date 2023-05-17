@@ -55,8 +55,6 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
     return msg
 
 
-    # break
-
 if __name__ == "__main__":
     path = f"{os.getcwd()}/dataset/"
     files_path = get_json_files(path)
