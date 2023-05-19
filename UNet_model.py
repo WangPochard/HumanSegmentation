@@ -1,15 +1,49 @@
+# import sys
 import sys
 
-import torch
+from torch.utils.data import Dataset
 from torch import nn
 from torchvision import models
+import cv2
 
-resnet = models.resnet50(pretrained=True)
-print(resnet)
-for name, module in resnet.named_children():
-    print(name)
+# 查看model structure，觀察整個ResNET中做了幾次downsampling & 縮小特徵圖像尺寸(Conv2d stride>2)
+# resnet = models.resnet50(pretrained=True)
+# print(resnet)
+# for name, module in resnet.named_children():
+#     print(name)
+#
+# sys.exit()
 
-sys.exit()
+class SegmentationDatasets(Dataset):
+    def __init__(self, image_paths, target_paths, transform=None):
+        """
+        :param image_paths: 總共的資料集路徑
+        :param target_paths: 總共的資料集路徑
+        :param transform:
+        """
+        self.image_paths = image_paths
+        self.target_paths = target_paths
+        self.transform = transform
+    def __len__(self):
+        return len(self.image_paths) # 可能是個陣列、資料表，有多個圖像路徑，是為了返回數據樣本的數量
+    def __getitem__(self, index):
+        image = self.load_images(self.image_paths[index])
+        target = self.load_target(self.image_paths[index])
+
+        if self.transform:
+            image, target = self.transform(image, target)
+
+        return image, target
+    def load_images(self, image_path):
+        img = cv2.imread(image_path)
+        return img
+        # pass
+    def load_target(self, target_path):
+        target_img = cv2.imread(target_path)
+        return target_img
+        # pass
+
+
 
 class UNet_nonTransferL(nn.Module):
     def __init__(self, in_channels, out_channels):
