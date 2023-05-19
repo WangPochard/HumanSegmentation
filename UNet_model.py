@@ -1,6 +1,8 @@
 # import sys
+import os
 import sys
 
+import torch
 from torch.utils.data import Dataset
 from torch import nn
 from torchvision import models
@@ -109,6 +111,10 @@ class UNet_nonTransferL(nn.Module):
 
 class Res_UNet(nn.Module):
     def __init__(self, in_channels, out_channels):
+        """
+        :param in_channels: ResNET50 default=3
+        :param out_channels: 依據我們 semantic segmentation任務中，masked image 是由幾種像素組成
+        """
         super(Res_UNet, self).__init__()
         """self.encoder_block = nn.Sequential(
                     nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
@@ -165,7 +171,7 @@ class Res_UNet(nn.Module):
             nn.ReLU(),
 
             nn.Conv2d(64, out_channels, kernel_size=1, padding=1),
-            nn.Sigmoid()
+            # nn.Sigmoid() # 若我loss function選擇使用 BCEWithLogitsLoss則可以不用加上這一層，因此損失函數已經自動應用Sigmoid函數了
         )
 
     def forward(self, x):
@@ -174,3 +180,13 @@ class Res_UNet(nn.Module):
         x = self.decoder_block(x)
 
         return x
+    def save_TrainedModel(self, path):
+        model_path = os.path.join(path, "Semantic_Segmentation.pt")
+        torch.save(self.state_dict(), model_path)
+        print("saved...")
+    @staticmethod
+    def load_TrainedModel(path):
+        model_path = os.path.join(path, "Semantic_Segmentation.pt")
+        model = torch.load(model_path)
+        print('loaded...')
+        return model
