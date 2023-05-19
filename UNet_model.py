@@ -175,7 +175,7 @@ class Res_UNet(nn.Module):
         )
 
     def forward(self, x):
-        x = self.encoder_block(x)
+        x = self.resnet_encoder(x)
 
         x = self.decoder_block(x)
 
