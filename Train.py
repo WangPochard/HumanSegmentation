@@ -9,12 +9,14 @@ from torch.optim import Adam, lr_scheduler
 from torch.nn import BCELoss, BCEWithLogitsLoss
 
 def train_step(model, optimizer, criterion, src_imgs, target_imgs):
-    # 使用GPU與否
+# 使用GPU與否
     if torch.cuda.is_available():
         use_cuda = True
     else:
         use_cuda = False
     device = torch.device("cuda:0" if use_cuda else "cpu")
+    model = model.to(device)
+    criterion = criterion.cuda().to(device, dtype=torch.float)
 # ------------------------------------
     optimizer.zero_grad()
     outputs = model(src_imgs)
@@ -47,11 +49,16 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     dataloader = DataLoader(dataset, batch_size=batch_sizes, shuffle=True)
     for epoch in range(epoches):
         scheduler.step()
+        running_loss = 0.0
         for batch_images, batch_targets in dataloader:
+            src_imgs = batch_images.to(device, dtype = torch.float32)
+            target_imgs = batch_targets.to(device, dtype = torch.float32)
             loss = train_step(model=model, optimizer = optimizer, criterion=criterion,
-                       src_imgs=batch_images, target_imgs=batch_targets)
+                       src_imgs=src_imgs, target_imgs=target_imgs)
 
-            print(f"Epoch [{epoch}/{epoches}], Batch Loss {loss}")
+            running_loss += loss
+
+        print(f"Epoch [{epoch}/{epoches}], Batch Loss: {running_loss / len(dataloader)}")
 
 
 

@@ -1,6 +1,7 @@
 import os
 # import sys
 # import time
+import sys
 
 import pandas as pd
 import numpy as np
@@ -90,6 +91,26 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
 if __name__ == "__main__":
     path = f"{os.getcwd()}/dataset/"
     process_path = f"{os.getcwd()}/resize_dataset/"
+
+
+    masked_path = os.path.join(f"{process_path}/masked", "0_1.png")
+    img = cv2.imread(masked_path)
+    rgb_image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    # print(rgb_image)
+    # print(rgb_image.shape)
+    r, g, b = cv2.split(rgb_image)
+    print(r)
+    print(r.shape)
+
+    print(g)
+    print(g.shape)
+
+    print(b)
+    print(b.shape)
+
+    sys.exit()
+
     files_path, files_name = get_json_files(path)
     files_name.to_csv(f"{process_path}FilesName.csv", encoding="utf_8_sig", index=False)
     # print(files_path)

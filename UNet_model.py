@@ -29,21 +29,24 @@ class SegmentationDatasets(Dataset):
     def __len__(self):
         return len(self.image_paths) # 可能是個陣列、資料表，有多個圖像路徑，是為了返回數據樣本的數量
     def __getitem__(self, index):
-        image = self.load_images(self.image_paths[index])
-        target = self.load_target(self.image_paths[index])
+        image = self.load_images(index)
+        target = self.load_target(index)
 
         if self.transform:
             image, target = self.transform(image, target)
 
+        image = torch.from_numpy(image.transpose((2, 0, 1))).float()
+        target = torch.from_numpy(target.transpose((2, 0, 1))).float()
         return image, target
-    def load_images(self, image_path):
-        img = cv2.imread(image_path)
+    def load_images(self, index):
+        img = cv2.imread(self.image_paths[index])
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img
-        # pass
-    def load_target(self, target_path):
-        target_img = cv2.imread(target_path)
+    def load_target(self, index):
+        target_img = cv2.imread(self.target_paths[index])
+        b, g, r = cv2.split(target_img)
+        target_img = cv2.merge((b, g))
         return target_img
-        # pass
 
 
 
