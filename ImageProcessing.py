@@ -40,8 +40,8 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
     """
     fileName = str(src_JsonParam["imagePath"].iloc[0])
     # resize shape
-    widgh = 1000
-    height = 1000
+    widgh = 512
+    height = 512
     try:
         df_shape = pd.DataFrame.from_dict(src_JsonParam["shapes"].iloc[0])
         arr_pts = np.array(df_shape["points"].values[0], np.int32)
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     process_path = f"{os.getcwd()}/resize_dataset/"
 
 
-    masked_path = os.path.join(f"{process_path}/masked", "0_1.png")
+    """masked_path = os.path.join(f"{process_path}/masked", "0_1.png")
     img = cv2.imread(masked_path)
     rgb_image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     print(b)
     print(b.shape)
 
-    sys.exit()
+    sys.exit()"""
 
     files_path, files_name = get_json_files(path)
     files_name.to_csv(f"{process_path}FilesName.csv", encoding="utf_8_sig", index=False)

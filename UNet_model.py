@@ -55,7 +55,19 @@ class UNet_nonTransferL(nn.Module):
         super(UNet_nonTransferL, self).__init__()
 
         self.encoder_block = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -65,52 +77,59 @@ class UNet_nonTransferL(nn.Module):
             nn.ReLU(),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-
-            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2) # 縮小特徵圖像
         )
     # FCN : 透過反捲積做upsampling 到原始圖像大小
+    # 输出大小 = （输入大小 - 1）* stride - 2 * padding + kernel_size
         self.decoder_block = nn.Sequential(
-            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2), # Feature Map 被放大了2倍
+            # input:(64*64) Out size = 63*2-2*1+ks
+            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2, padding=1), # Feature Map 被放大了2倍 // kernel_size = 4 (2*2)
             nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1), # padding = 1 「 same padding = (kernel size -1)/2 」
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1), # padding = 1 「 same padding = (kernel size -1)/2 」
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
 
-            nn.Conv2d(64, out_channels, kernel_size=1, padding=1),
-            nn.Sigmoid()
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=0), #
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            #
+            # nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2, padding=1),
+            # nn.ReLU(),
+            # nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
+            # nn.ReLU(),
+            # nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
+            # nn.ReLU(),
+            #
+            # nn.ConvTranspose2d(16, 8, kernel_size=2, stride=2, padding=1),
+            # nn.ReLU(),
+            # nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
+            # nn.ReLU(),
+            # nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
+            # nn.ReLU(),
+
+            nn.Conv2d(32, out_channels, kernel_size=1, stride=1, padding=1),
+            # nn.Sigmoid()
         )
     def forward(self, x):
         x = self.encoder_block(x)
-
+        print(f"encoder shape:{x.shape}")
         x = self.decoder_block(x)
-
+        print(f"decoder shape:{x.shape}")
         return x
+    def save_TrainedModel(self, path):
+        model_path = os.path.join(path, "Semantic_Segmentation.pt")
+        torch.save(self.state_dict(), model_path)
+        print("saved...")
+    @staticmethod
+    def load_TrainedModel(path):
+        model_path = os.path.join(path, "Semantic_Segmentation.pt")
+        model = torch.load(model_path)
+        print('loaded...')
+        return model
 
 class Res_UNet(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -147,8 +166,6 @@ class Res_UNet(nn.Module):
         resnet = models.resnet50(pretrained = True)
         self.resnet_encoder = nn.Sequential(*list(resnet.children())[:-2]) # 獲取resnet 的encoder區塊
 
-
-
         # FCN : 透過反捲積做upsampling 到原始圖像大小
         self.decoder_block = nn.Sequential(
             nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),  # Feature Map 被放大了2倍
@@ -179,9 +196,7 @@ class Res_UNet(nn.Module):
 
     def forward(self, x):
         x = self.resnet_encoder(x)
-
         x = self.decoder_block(x)
-
         return x
     def save_TrainedModel(self, path):
         model_path = os.path.join(path, "Semantic_Segmentation.pt")
@@ -193,3 +208,11 @@ class Res_UNet(nn.Module):
         model = torch.load(model_path)
         print('loaded...')
         return model
+
+
+if __name__ == "__main__":
+    input_tensor = torch.randn(1, 3, 1024, 1024)
+
+    model = UNet_nonTransferL(3, 2)
+
+    out = model(input_tensor)

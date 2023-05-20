@@ -1,12 +1,15 @@
 import os
+import sys
 from glob import glob
 
 import torch.cuda
 
-from UNet_model import Res_UNet, SegmentationDatasets
+from UNet_model import UNet_nonTransferL, SegmentationDatasets
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler
 from torch.nn import BCELoss, BCEWithLogitsLoss
+import torch.cuda as cuda
+
 
 def train_step(model, optimizer, criterion, src_imgs, target_imgs):
 # 使用GPU與否
@@ -59,7 +62,7 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
             running_loss += loss
 
         print(f"Epoch [{epoch}/{epoches}], Batch Loss: {running_loss / len(dataloader)}")
-
+        cuda.empty_cache()
 
 
 if __name__ == "__main__":
@@ -75,12 +78,15 @@ if __name__ == "__main__":
     dataset = SegmentationDatasets(image_paths = src_paths, target_paths = target_paths)
     print(dataset)
 
-    model = Res_UNet(3, 2)
+    model = UNet_nonTransferL(3, 2)
+
+    print(model)
+    sys.exit()
 
     # 超參數設定
-    lr = 1e-4
-    batch_sizes = 16
-    epoches = 100
+    lr = 1e-2
+    batch_sizes = 8
+    epoches = 50
 
     Train(model, dataset, batch_sizes, epoches, learning_rate=lr)
 
