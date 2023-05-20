@@ -83,42 +83,42 @@ class UNet_nonTransferL(nn.Module):
     # 输出大小 = （输入大小 - 1）* stride - 2 * padding + kernel_size
         self.decoder_block = nn.Sequential(
             # input:(64*64) Out size = 63*2-2*1+ks
-            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2, padding=1), # Feature Map 被放大了2倍 // kernel_size = 4 (2*2)
+            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2, padding=0), # Feature Map 被放大了2倍 // kernel_size = 4 (2*2)
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1), # padding = 1 「 same padding = (kernel size -1)/2 」
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
 
-            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=0), #
+            nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2, padding=0), #
             nn.ReLU(),
             nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            #
-            # nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2, padding=1),
-            # nn.ReLU(),
-            # nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(),
-            # nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(),
-            #
-            # nn.ConvTranspose2d(16, 8, kernel_size=2, stride=2, padding=1),
-            # nn.ReLU(),
-            # nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(),
-            # nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
-            # nn.ReLU(),
 
-            nn.Conv2d(32, out_channels, kernel_size=1, stride=1, padding=1),
+            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(16, 8, kernel_size=2, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(8, 8, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+
+            nn.Conv2d(8, out_channels, kernel_size=1, stride=1, padding=0),
             # nn.Sigmoid()
         )
     def forward(self, x):
         x = self.encoder_block(x)
-        print(f"encoder shape:{x.shape}")
+        # print(f"encoder shape:{x.shape}")
         x = self.decoder_block(x)
-        print(f"decoder shape:{x.shape}")
+        # print(f"decoder shape:{x.shape}")
         return x
     def save_TrainedModel(self, path):
         model_path = os.path.join(path, "Semantic_Segmentation.pt")

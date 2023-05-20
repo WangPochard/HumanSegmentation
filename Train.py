@@ -80,8 +80,8 @@ if __name__ == "__main__":
 
     model = UNet_nonTransferL(3, 2)
 
-    print(model)
-    sys.exit()
+    # print(model)
+    # sys.exit()
 
     # 超參數設定
     lr = 1e-2
