@@ -19,7 +19,7 @@ torch.cuda.set_device(0)
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 
-def train_step(model, optimizer, criterion, src_imgs, target_imgs, total_pixels, correct_pixels):
+def train_step(model, optimizer, criterion, dataloader):
 # 使用GPU與否
     if torch.cuda.is_available():
         use_cuda = True
@@ -31,26 +31,66 @@ def train_step(model, optimizer, criterion, src_imgs, target_imgs, total_pixels,
 
     criterion = criterion.cuda().to(device, dtype=torch.float)
 # ------------------------------------
-    outputs = model(src_imgs)
-    # print(outputs.shape)
-    target_labels = target_imgs[:, 0, :, :]
-    predict_labels = torch.argmax(outputs, dim=1)
-    # print(predict_labels)
-    # print(predict_labels.shape)
-    total_pixels += outputs.numel() # 計算總pixel 數值
-    correct_pixels += (predict_labels == target_labels).sum().item()
+    total_loss = 0.0
+    total_pixels = 0
+    correct_pixels = 0
+    for batch_images, batch_targets in dataloader:
+        src_imgs = batch_images.to(device, dtype=torch.float32)
+        target_imgs = batch_targets.to(device, dtype=torch.float32)
 
-    optimizer.zero_grad()
-    # print(outputs)
-    # print(outputs.shape)
-    # print(target_imgs.shape)
-    # time.sleep(10)
-    batch_loss = criterion(outputs, target_imgs)
+        outputs = model(src_imgs)
+        # print(outputs.shape)
+        target_labels = target_imgs[:, 0, :, :]
+        predict_labels = torch.argmax(outputs, dim=1)
+        # print(predict_labels)
+        # print(predict_labels.shape)
+        total_pixels += outputs.numel()  # 計算總pixel 數值
+        correct_pixels += (predict_labels == target_labels).sum().item()
 
-    batch_loss.backward()
-    optimizer.step()
+        optimizer.zero_grad()
+        # print(outputs)
+        # print(outputs.shape)
+        # print(target_imgs.shape)
+        # time.sleep(10)
+        batch_loss = criterion(outputs, target_imgs)
 
-    return batch_loss.item(), total_pixels, correct_pixels
+        batch_loss.backward()
+        optimizer.step()
+        # loss, total_pixels, correct_pixels = train_step(model=model, optimizer=optimizer, criterion=criterion,
+        #                                                 src_imgs=src_imgs, target_imgs=target_imgs,
+        #                                                 total_pixels=total_pixels, correct_pixels=correct_pixels)
+        total_loss += batch_loss.item()
+    avg_loss = total_loss / len(dataloader)
+    acc = correct_pixels / total_pixels
+    return avg_loss, acc
+def test_step(model, dataloader, criterion):
+    model.eval()
+    total_loss = 0.0
+    total_pixels = 0
+    correct_pixels = 0
+    if torch.cuda.is_available():
+        use_cuda = True
+    else:
+        use_cuda = False
+    device = torch.device("cuda:0" if use_cuda else "cpu")
+    with torch.no_grad():
+        for batch_images, batch_targets in dataloader:
+            src_imgs = batch_images.to(device, dtype=torch.float32)
+            target_imgs = batch_targets.to(device, dtype=torch.long)
+            target_labels = target_imgs[:, 0, :, :]
+
+            outputs = model(src_imgs)
+            loss = criterion(outputs, target_labels)
+
+            total_loss += loss.item()
+            total_pixels += target_labels.numel()
+            predicted_labels = torch.argmax(outputs, dim=1)
+            correct_pixels += (predicted_labels == target_labels).sum().item()
+
+    avg_loss = total_loss / len(dataloader)
+    accuracy = correct_pixels / total_pixels
+
+    return avg_loss, accuracy
 
 def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # 使用GPU與否
@@ -59,8 +99,7 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     else:
         use_cuda = False
     device = torch.device("cuda:0" if use_cuda else "cpu")
-    correct_pixels = 0
-    total_pixels = 0
+
 # ---------------------------
     model = model.to(device)
 
@@ -72,22 +111,34 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     optimizer = SGD(model.parameters(), lr = learning_rate, momentum=0.9) # Adam
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
 
-    dataloader = DataLoader(dataset, batch_size=batch_sizes, shuffle=True)
+
+    # dataloader = DataLoader(dataset, batch_size=batch_sizes, shuffle=True)
+    train_size = int(0.8*len(dataset))
+    test_size = len(dataset) - train_size
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])  # 根据需要划分训练集和测试集
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_sizes, shuffle=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_sizes, shuffle=False)
+
     for epoch in range(epoches):
         scheduler.step()
-        running_loss = 0.0
-        for batch_images, batch_targets in dataloader:
-            src_imgs = batch_images.to(device, dtype = torch.float32)
-            target_imgs = batch_targets.to(device, dtype = torch.float32)
-            loss, total_pixels, correct_pixels = train_step(model=model, optimizer = optimizer, criterion=criterion,
-                       src_imgs=src_imgs, target_imgs=target_imgs, total_pixels = total_pixels, correct_pixels = correct_pixels)
-
-            running_loss += loss
-        pixel_acc = correct_pixels/total_pixels # 計算pixel 準確率
+        train_loss, train_acc = train_step(model=model, dataloader=train_dataloader, criterion=criterion, optimizer = optimizer)
+        test_loss, test_acc = test_step(model = model, dataloader=test_dataloader, criterion=criterion)
+        # for batch_images, batch_targets in dataloader:
+        #     src_imgs = batch_images.to(device, dtype = torch.float32)
+        #     target_imgs = batch_targets.to(device, dtype = torch.float32)
+        #     loss, total_pixels, correct_pixels = train_step(model=model, optimizer = optimizer, criterion=criterion,
+        #                src_imgs=src_imgs, target_imgs=target_imgs, total_pixels = total_pixels, correct_pixels = correct_pixels)
+        #
+        #     running_loss += loss
         print(f"Epoch [{epoch+1}/{epoches}]")
-        print(f"\tBatch Loss: {running_loss / len(dataloader)}")
-        print(f"\tPixel Accuracy : {pixel_acc}")
+        print(f"\tTraining Loss: {train_loss}")
+        print(f"\tTraining Pixel Accuracy : {train_acc}")
+        print(f"\tTesting Loss: {test_loss}")
+        print(f"\tTesting Pixel Accuracy : {test_acc}")
+
         cuda.empty_cache()
+
+
 
 
 if __name__ == "__main__":
