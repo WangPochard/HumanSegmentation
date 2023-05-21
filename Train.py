@@ -1,14 +1,22 @@
 import os
 import sys
+import time
 from glob import glob
 
 import torch.cuda
+from torch.backends import cudnn
 
 from UNet_model import UNet_nonTransferL, SegmentationDatasets
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler
 from torch.nn import BCELoss, BCEWithLogitsLoss
 import torch.cuda as cuda
+
+CUDA_LAUNCH_BLOCKING="1"
+torch.autograd.set_detect_anomaly(True) # 梯度檢測
+cudnn.benchmark = True
+torch.cuda.set_device(0)
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 
 def train_step(model, optimizer, criterion, src_imgs, target_imgs):
@@ -21,16 +29,18 @@ def train_step(model, optimizer, criterion, src_imgs, target_imgs):
     model = model.to(device)
     criterion = criterion.cuda().to(device, dtype=torch.float)
 # ------------------------------------
-    optimizer.zero_grad()
     outputs = model(src_imgs)
+    optimizer.zero_grad()
+    print(outputs)
+    print(outputs.shape)
+    print(target_imgs.shape)
+    time.sleep(10)
+    batch_loss = criterion(outputs, target_imgs)
 
-    loss = criterion(outputs, target_imgs)
-
-    loss.backward()
-
+    batch_loss.backward()
     optimizer.step()
 
-    return loss.item()
+    return batch_loss.item()
 
 def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # 使用GPU與否
