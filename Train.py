@@ -8,8 +8,8 @@ from torch.backends import cudnn
 
 from UNet_model import UNet_nonTransferL, SegmentationDatasets
 from torch.utils.data import DataLoader
-from torch.optim import Adam, lr_scheduler
-from torch.nn import BCELoss, BCEWithLogitsLoss
+from torch.optim import Adam, lr_scheduler, SGD
+from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss
 import torch.cuda as cuda
 
 CUDA_LAUNCH_BLOCKING="1"
@@ -19,7 +19,7 @@ torch.cuda.set_device(0)
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 
-def train_step(model, optimizer, criterion, src_imgs, target_imgs):
+def train_step(model, optimizer, criterion, src_imgs, target_imgs, total_pixels, correct_pixels):
 # 使用GPU與否
     if torch.cuda.is_available():
         use_cuda = True
@@ -27,20 +27,30 @@ def train_step(model, optimizer, criterion, src_imgs, target_imgs):
         use_cuda = False
     device = torch.device("cuda:0" if use_cuda else "cpu")
     model = model.to(device)
+
+
     criterion = criterion.cuda().to(device, dtype=torch.float)
 # ------------------------------------
     outputs = model(src_imgs)
+    # print(outputs.shape)
+    target_labels = target_imgs[:, 0, :, :]
+    predict_labels = torch.argmax(outputs, dim=1)
+    # print(predict_labels)
+    # print(predict_labels.shape)
+    total_pixels += outputs.numel() # 計算總pixel 數值
+    correct_pixels += (predict_labels == target_labels).sum().item()
+
     optimizer.zero_grad()
-    print(outputs)
-    print(outputs.shape)
-    print(target_imgs.shape)
-    time.sleep(10)
+    # print(outputs)
+    # print(outputs.shape)
+    # print(target_imgs.shape)
+    # time.sleep(10)
     batch_loss = criterion(outputs, target_imgs)
 
     batch_loss.backward()
     optimizer.step()
 
-    return batch_loss.item()
+    return batch_loss.item(), total_pixels, correct_pixels
 
 def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # 使用GPU與否
@@ -49,14 +59,17 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     else:
         use_cuda = False
     device = torch.device("cuda:0" if use_cuda else "cpu")
+    correct_pixels = 0
+    total_pixels = 0
 # ---------------------------
     model = model.to(device)
 
-
 # 損失函數、優化器、scheduler(學習率調適器) 選擇
-    criterion = BCEWithLogitsLoss()
+# BCEWithLogitsLoss : default activation func - Sigmoid
+# CrossEntropyLoss : Softmax
+    criterion = CrossEntropyLoss() # BCEWithLogitsLoss
     criterion = criterion.cuda().to(device, dtype=torch.float)
-    optimizer = Adam(model.parameters(), lr = learning_rate)
+    optimizer = SGD(model.parameters(), lr = learning_rate, momentum=0.9) # Adam
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
 
     dataloader = DataLoader(dataset, batch_size=batch_sizes, shuffle=True)
@@ -66,12 +79,14 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
         for batch_images, batch_targets in dataloader:
             src_imgs = batch_images.to(device, dtype = torch.float32)
             target_imgs = batch_targets.to(device, dtype = torch.float32)
-            loss = train_step(model=model, optimizer = optimizer, criterion=criterion,
-                       src_imgs=src_imgs, target_imgs=target_imgs)
+            loss, total_pixels, correct_pixels = train_step(model=model, optimizer = optimizer, criterion=criterion,
+                       src_imgs=src_imgs, target_imgs=target_imgs, total_pixels = total_pixels, correct_pixels = correct_pixels)
 
             running_loss += loss
-
-        print(f"Epoch [{epoch}/{epoches}], Batch Loss: {running_loss / len(dataloader)}")
+        pixel_acc = correct_pixels/total_pixels # 計算pixel 準確率
+        print(f"Epoch [{epoch+1}/{epoches}]")
+        print(f"\tBatch Loss: {running_loss / len(dataloader)}")
+        print(f"\tPixel Accuracy : {pixel_acc}")
         cuda.empty_cache()
 
 
@@ -94,8 +109,8 @@ if __name__ == "__main__":
     # sys.exit()
 
     # 超參數設定
-    lr = 1e-2
-    batch_sizes = 8
+    lr = 1e-4
+    batch_sizes = 16
     epoches = 50
 
     Train(model, dataset, batch_sizes, epoches, learning_rate=lr)
