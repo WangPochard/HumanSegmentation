@@ -1,6 +1,4 @@
 import os
-import sys
-import time
 from glob import glob
 
 import torch.cuda
@@ -39,26 +37,16 @@ def train_step(model, optimizer, criterion, dataloader):
         target_imgs = batch_targets.to(device, dtype=torch.float32)
 
         outputs = model(src_imgs)
-        # print(outputs.shape)
         target_labels = target_imgs[:, 0, :, :]
         predict_labels = torch.argmax(outputs, dim=1)
-        # print(predict_labels)
-        # print(predict_labels.shape)
         total_pixels += outputs.numel()  # 計算總pixel 數值
         correct_pixels += (predict_labels == target_labels).sum().item()
 
         optimizer.zero_grad()
-        # print(outputs)
-        # print(outputs.shape)
-        # print(target_imgs.shape)
-        # time.sleep(10)
         batch_loss = criterion(outputs, target_imgs)
 
         batch_loss.backward()
         optimizer.step()
-        # loss, total_pixels, correct_pixels = train_step(model=model, optimizer=optimizer, criterion=criterion,
-        #                                                 src_imgs=src_imgs, target_imgs=target_imgs,
-        #                                                 total_pixels=total_pixels, correct_pixels=correct_pixels)
         total_loss += batch_loss.item()
     avg_loss = total_loss / len(dataloader)
     acc = correct_pixels / total_pixels
@@ -108,9 +96,8 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # CrossEntropyLoss : Softmax
     criterion = CrossEntropyLoss() # BCEWithLogitsLoss
     criterion = criterion.cuda().to(device, dtype=torch.float)
-    optimizer = SGD(model.parameters(), lr = learning_rate, momentum=0.9) # Adam
+    optimizer = Adam(model.parameters(), lr = learning_rate)#, momentum=0.9) # Adam
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
-
 
     # dataloader = DataLoader(dataset, batch_size=batch_sizes, shuffle=True)
     train_size = int(0.8*len(dataset))
@@ -123,13 +110,6 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
         scheduler.step()
         train_loss, train_acc = train_step(model=model, dataloader=train_dataloader, criterion=criterion, optimizer = optimizer)
         test_loss, test_acc = test_step(model = model, dataloader=test_dataloader, criterion=criterion)
-        # for batch_images, batch_targets in dataloader:
-        #     src_imgs = batch_images.to(device, dtype = torch.float32)
-        #     target_imgs = batch_targets.to(device, dtype = torch.float32)
-        #     loss, total_pixels, correct_pixels = train_step(model=model, optimizer = optimizer, criterion=criterion,
-        #                src_imgs=src_imgs, target_imgs=target_imgs, total_pixels = total_pixels, correct_pixels = correct_pixels)
-        #
-        #     running_loss += loss
         print(f"Epoch [{epoch+1}/{epoches}]")
         print(f"\tTraining Loss: {train_loss}")
         print(f"\tTraining Pixel Accuracy : {train_acc}")
