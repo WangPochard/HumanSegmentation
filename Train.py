@@ -4,11 +4,12 @@ from glob import glob
 import torch.cuda
 from torch.backends import cudnn
 
-from UNet_model import UNet_nonTransferL, SegmentationDatasets
+from UNet_model import UNet_nonTransferL, SegmentationDatasets, Res_UNet
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler, SGD
 from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss
 import torch.cuda as cuda
+import matplotlib.pyplot as plt
 
 CUDA_LAUNCH_BLOCKING="1"
 torch.autograd.set_detect_anomaly(True) # 梯度檢測
@@ -16,6 +17,27 @@ cudnn.benchmark = True
 torch.cuda.set_device(0)
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
+def PlotAccLoss(abs_path, acc, loss, dataset_name, epochs):
+
+    x1 = range(0, epochs)
+    x2 = range(0, epochs)
+    y1 = acc
+    y2 = loss
+    #plt.subplots(211)
+    plt.plot(x1, y1, 'o-')
+    plt.title(f"{dataset_name} accuracy vs. epoches")
+    plt.ylabel(f"{dataset_name} accuracy")
+    plt.savefig(f"{abs_path}/{dataset_name}_accuracy.png",
+                box_inches="tight")
+    plt.show()
+    #plt.subplots(212)
+    plt.plot(x2, y2, 'o-')
+    plt.title(f"{dataset_name} loss vs. epoches")
+    plt.ylabel(f"{dataset_name} loss")
+    plt.savefig(f"{abs_path}/{dataset_name}_loss.png",
+                box_inches="tight")
+    plt.show()
+    plt.close()
 
 def train_step(model, optimizer, criterion, dataloader):
 # 使用GPU與否
@@ -75,10 +97,10 @@ def test_step(model, dataloader, criterion):
             predicted_labels = torch.argmax(outputs, dim=1)
             correct_pixels += (predicted_labels == target_labels).sum().item()
 
-    avg_loss = total_loss / len(dataloader)
-    accuracy = correct_pixels / total_pixels
+        avg_loss = total_loss / len(dataloader)
+        accuracy = correct_pixels / total_pixels
 
-    return avg_loss, accuracy
+        return avg_loss, accuracy
 
 def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # 使用GPU與否
@@ -97,7 +119,8 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     criterion = CrossEntropyLoss() # BCEWithLogitsLoss
     criterion = criterion.cuda().to(device, dtype=torch.float)
     optimizer = Adam(model.parameters(), lr = learning_rate)#, momentum=0.9) # Adam
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
+    # scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
+    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.5)
 
     # dataloader = DataLoader(dataset, batch_size=batch_sizes, shuffle=True)
     train_size = int(0.8*len(dataset))
@@ -105,6 +128,11 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])  # 根据需要划分训练集和测试集
     train_dataloader = DataLoader(train_dataset, batch_size=batch_sizes, shuffle=True)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_sizes, shuffle=False)
+
+    train_loss_all = []
+    train_acc_all = []
+    val_loss_all = []
+    val_acc_all = []
 
     for epoch in range(epoches):
         scheduler.step()
@@ -118,6 +146,15 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 
         cuda.empty_cache()
 
+
+        train_loss_all.append(train_loss / len(train_dataset))
+        train_acc_all.append(train_acc / len(train_dataset))
+        val_loss_all.append(test_loss / len(test_dataset))
+        val_acc_all.append(test_acc / len(test_dataset))
+
+
+    PlotAccLoss(os.path.join(os.getcwd(), "resize_dataset"), train_acc_all, train_loss_all, dataset_name="Train", epochs=epoches)
+    PlotAccLoss(os.path.join(os.getcwd(), "resize_dataset"), val_acc_all, val_loss_all, dataset_name="Validation", epochs=epoches)
 
 
 
@@ -134,14 +171,15 @@ if __name__ == "__main__":
     dataset = SegmentationDatasets(image_paths = src_paths, target_paths = target_paths)
     print(dataset)
 
-    model = UNet_nonTransferL(3, 2)
+    model = Res_UNet(2)
+    # model = UNet_nonTransferL(3, 2)
 
     # print(model)
     # sys.exit()
 
     # 超參數設定
-    lr = 1e-4
-    batch_sizes = 16
+    lr = 1e-3
+    batch_sizes = 8
     epoches = 50
 
     Train(model, dataset, batch_sizes, epoches, learning_rate=lr)
