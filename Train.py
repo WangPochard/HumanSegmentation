@@ -107,7 +107,6 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     test_dataloader = DataLoader(test_dataset, batch_size=batch_sizes, shuffle=False)
 
     for epoch in range(epoches):
-        scheduler.step()
         train_loss, train_acc = train_step(model=model, dataloader=train_dataloader, criterion=criterion, optimizer = optimizer)
         test_loss, test_acc = test_step(model = model, dataloader=test_dataloader, criterion=criterion)
         print(f"Epoch [{epoch+1}/{epoches}]")
@@ -115,6 +114,7 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
         print(f"\tTraining Pixel Accuracy : {train_acc}")
         print(f"\tTesting Loss: {test_loss}")
         print(f"\tTesting Pixel Accuracy : {test_acc}")
+        scheduler.step()
 
         cuda.empty_cache()
 
