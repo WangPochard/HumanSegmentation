@@ -172,7 +172,7 @@ class Res_UNet(nn.Module):
                     nn.MaxPool2d(kernel_size=2, stride=2)  # 縮小特徵圖像
                 )"""
         # resnet = models.resnet50(pretrained = True)
-        resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1) # torchvision 新版的pretrained model 寫法
         for param in resnet.parameters():
             param.requires_grad = False
         self.resnet_encoder = nn.Sequential(*list(resnet.children())[:-4]) # 獲取resnet 的encoder區塊 -2
