@@ -10,6 +10,7 @@ from torch.optim import Adam, lr_scheduler, SGD
 from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss
 import torch.cuda as cuda
 import matplotlib.pyplot as plt
+import cv2
 
 CUDA_LAUNCH_BLOCKING="1"
 torch.autograd.set_detect_anomaly(True) # 梯度檢測
@@ -47,6 +48,7 @@ def train_step(model, optimizer, criterion, dataloader):
         use_cuda = False
     device = torch.device("cuda:0" if use_cuda else "cpu")
     model = model.to(device)
+    model.train()
 
 
     criterion = criterion.cuda().to(device, dtype=torch.float)
@@ -84,17 +86,20 @@ def test_step(model, dataloader, criterion):
         use_cuda = False
     device = torch.device("cuda:0" if use_cuda else "cpu")
     with torch.no_grad():
+        model.eval()
         for batch_images, batch_targets in dataloader:
             src_imgs = batch_images.to(device, dtype=torch.float32)
-            target_imgs = batch_targets.to(device, dtype=torch.long)
+            target_imgs = batch_targets.to(device, dtype=torch.float32) # long
             target_labels = target_imgs[:, 0, :, :]
 
             outputs = model(src_imgs)
-            loss = criterion(outputs, target_labels)
+            plt.plot(outputs)
+
+            loss = criterion(outputs, target_imgs)
 
             total_loss += loss.item()
             total_pixels += target_labels.numel()
-            predicted_labels = torch.argmax(outputs, dim=1)
+            predicted_labels = torch.argmax(outputs, dim=1) #, keepdim=True)
             correct_pixels += (predicted_labels == target_labels).sum().item()
 
         avg_loss = total_loss / len(dataloader)
@@ -116,14 +121,14 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # 損失函數、優化器、scheduler(學習率調適器) 選擇
 # BCEWithLogitsLoss : default activation func - Sigmoid
 # CrossEntropyLoss : Softmax
-    criterion = CrossEntropyLoss() # BCEWithLogitsLoss
+    criterion = CrossEntropyLoss()# BCEWithLogitsLoss()# BCELoss()
     criterion = criterion.cuda().to(device, dtype=torch.float)
     optimizer = Adam(model.parameters(), lr = learning_rate)#, momentum=0.9) # Adam
     # scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
     scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.5)
 
     # dataloader = DataLoader(dataset, batch_size=batch_sizes, shuffle=True)
-    train_size = int(0.8*len(dataset))
+    train_size = int(0.9*len(dataset))
     test_size = len(dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])  # 根据需要划分训练集和测试集
     train_dataloader = DataLoader(train_dataset, batch_size=batch_sizes, shuffle=True)
