@@ -51,9 +51,10 @@ class SegmentationDatasets(Dataset):
         return img
     def load_target(self, index):
         target_img = cv2.imread(self.target_paths[index])
-        b, g, r = cv2.split(target_img)
-        target_img = cv2.merge((b, g))
+        """b, g, r = cv2.split(target_img)
+        target_img = cv2.merge((b, g))"""
         # target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
+        target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2RGB)
         return target_img
 
 
@@ -231,23 +232,69 @@ class Res_UNet(nn.Module):
         return model
 
 
+
 if __name__ == "__main__":
-    input_tensor = torch.randn(1, 3, 1024, 1024)
-    print(input_tensor.shape)
-    out = input_tensor[:,0,:,:]
-    print(out)
-    print(out.shape)
+    import matplotlib.pyplot as plt
+    path = f"{os.getcwd()}"
+    path = os.path.join(path, "resize_dataset")
+    path = os.path.join(path, "masked")
 
-    """resnet = models.resnet50(pretrained = True)
-    print(len(list(resnet.children())))
-    # print(list(resnet.named_children()))
-    for name, layer in resnet.named_children():
-        # if isinstance(layer, torch.nn.Conv2d):
-        print(name)
-    sys.exit()"""
+    file_path = os.path.join(path, "0_1.png")
+    print(file_path)
 
-    # model = UNet_nonTransferL(3, 2)
-    model = Res_UNet(2)
-    # print(model)
+    img = cv2.imread(file_path)
+    img2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    out = model(input_tensor)
+    # r,g,b = cv2.split(img)
+    # img3 = cv2.merge((r,g))
+
+
+    print(img.shape)
+    print(img2.shape)
+    # print(img3.shape)
+
+    plt.imshow(img)
+    plt.title("src")
+    plt.show()
+
+    plt.imshow(img2)
+    plt.title("src bgr to gray")
+    plt.show()
+
+    """plt.imshow(img3)
+    plt.title("src bgr to rgb")
+    plt.show()"""
+
+    # cv2.imshow("src",img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    #
+    # cv2.imshow("src bgr to rgb", img2)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
+
+
+
+
+
+# if __name__ == "__main__":
+#     input_tensor = torch.randn(1, 3, 1024, 1024)
+#     print(input_tensor.shape)
+#     out = input_tensor[:,0,:,:]
+#     print(out)
+#     print(out.shape)
+#
+#     """resnet = models.resnet50(pretrained = True)
+#     print(len(list(resnet.children())))
+#     # print(list(resnet.named_children()))
+#     for name, layer in resnet.named_children():
+#         # if isinstance(layer, torch.nn.Conv2d):
+#         print(name)
+#     sys.exit()"""
+#
+#     # model = UNet_nonTransferL(3, 2)
+#     model = Res_UNet(2)
+#     # print(model)
+#
+#     out = model(input_tensor)
