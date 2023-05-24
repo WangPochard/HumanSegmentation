@@ -7,6 +7,7 @@ import numpy as np
 from UNet_model import UNet_nonTransferL, SegmentationDatasets, Res_UNet
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler, SGD
+import torchvision.transforms.functional as TF
 from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss
 import torch.cuda as cuda
 import matplotlib.pyplot as plt
@@ -39,6 +40,21 @@ def PlotAccLoss(abs_path, acc, loss, dataset_name, epochs):
                 box_inches="tight")
     plt.show()
     plt.close()
+
+
+def dataloader_plt(imgs, title):
+    img = imgs[0]
+    img_np = TF.to_pil_image(img)
+    img_np = TF.to_grayscale(img_np)
+    img_np = TF.to_tensor(img_np)
+    img_np = img_np.numpy()
+    img_np = np.transpose(img_np, (1,2,0))
+
+    plt.imshow(img_np, cmap="gray")
+    plt.imshow(img_np)
+    plt.title(f"{title}")
+    plt.axis('off')
+    plt.show()
 
 def train_step(model, optimizer, criterion, dataloader):
 # 使用GPU與否
@@ -102,47 +118,15 @@ def test_step(model, dataloader, criterion):
         for batch_images, batch_targets in dataloader:
             src_imgs = batch_images.to(device, dtype=torch.float32)
 
-            batch_images_plt = batch_images[0,:,:,:]
-            batch_images_plt = batch_images_plt.detach().numpy()
-            batch_images_plt = np.transpose(batch_images_plt, (1,2,0))
-            plt.imshow(batch_images_plt, cmap=None)
-            plt.title("src(batch)")
-            plt.axis("off")
-            plt.show()
+            dataloader_plt(batch_images, "src image")
+            dataloader_plt(batch_targets, "src masked image")
 
             target_imgs = batch_targets.to(device, dtype=torch.float32) # long
             target_labels = target_imgs[:, 0, :, :]
-
             outputs = model(src_imgs)
-
-            src_image = src_imgs[0,:,:,:]
-            src_image = src_image.detach().cpu().numpy()
-            src_image = np.transpose(src_image, (1,2,0))
-            src_image.astype(np.uint8)
-            print(src_image.shape)
-            plt.imshow(src_image, cmap=None, vmin=0, vmax=1)
-            plt.title("src")
-            plt.axis("off")
-            plt.show()
-
-
-            cv2.imshow("rgb image", src_image)
-            cv2.waitKey(0)
-            cv2.destropAllWindows()
-
-
-
-            """image = outputs[0,:,:,:]
-            image_np = image.detach().cpu().numpy()
-            plt.imshow(image_np[0], cmap='gray')
-            plt.axis("off")
-            plt.show()
-
-            plt.imshow(image_np[1], cmap='gray')
-            plt.axis("off")
-            plt.show()"""
-
             loss = criterion(outputs, target_imgs)
+
+            dataloader_plt(outputs, "predict image")
 
             total_loss += loss.item()
             total_pixels += target_labels.numel()
@@ -223,7 +207,7 @@ if __name__ == "__main__":
     dataset = SegmentationDatasets(image_paths = src_paths, target_paths = target_paths)
     print(dataset)
 
-    model = Res_UNet(2)
+    model = Res_UNet(3)
     # model = UNet_nonTransferL(3, 2)
 
     # print(model)
