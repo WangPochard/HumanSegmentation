@@ -36,7 +36,14 @@ class SegmentationDatasets(Dataset):
             image, target = self.transform(image, target)
 
         image = torch.from_numpy(image.transpose((2, 0, 1))).float()
+        # print(image.shape, "\t", type(image))
+        # print(target.shape, "\t", type(target))
+
         target = torch.from_numpy(target.transpose((2, 0, 1))).float()
+
+        # target = torch.tensor(target)
+        # target = target.unsqueeze(0)
+        # print(target.shape, "\t", type(target))
         return image, target
     def load_images(self, index):
         img = cv2.imread(self.image_paths[index])
@@ -44,8 +51,10 @@ class SegmentationDatasets(Dataset):
         return img
     def load_target(self, index):
         target_img = cv2.imread(self.target_paths[index])
-        b, g, r = cv2.split(target_img)
-        target_img = cv2.merge((b, g))
+        """b, g, r = cv2.split(target_img)
+        target_img = cv2.merge((b, g))"""
+        # target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
+        target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2RGB)
         return target_img
 
 
@@ -132,7 +141,7 @@ class UNet_nonTransferL(nn.Module):
         return model
 
 class Res_UNet(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, out_channels):
         """
         :param in_channels: ResNET50 default=3
         :param out_channels: 依據我們 semantic segmentation任務中，masked image 是由幾種像素組成
@@ -163,15 +172,26 @@ class Res_UNet(nn.Module):
                     nn.ReLU(),
                     nn.MaxPool2d(kernel_size=2, stride=2)  # 縮小特徵圖像
                 )"""
-        resnet = models.resnet50(pretrained = True)
-        self.resnet_encoder = nn.Sequential(*list(resnet.children())[:-2]) # 獲取resnet 的encoder區塊
+        # resnet = models.resnet50(pretrained = True)
+        resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1) # torchvision 新版的pretrained model 寫法
+        for param in resnet.parameters():
+            param.requires_grad = False
+        self.resnet_encoder = nn.Sequential(*list(resnet.children())[:-4]) # 獲取resnet 的encoder區塊 -2
 
         # FCN : 透過反捲積做upsampling 到原始圖像大小
         self.decoder_block = nn.Sequential(
-            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),  # Feature Map 被放大了2倍
+# -3
+            # nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2),  # Feature Map 被放大了2倍
+            # nn.ReLU(),
+            # nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+            # # padding = 1 「 same padding = (kernel size -1)/2 」
+            # nn.ReLU(),
+            # nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+            # nn.ReLU(),
+
+            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),
             nn.ReLU(),
             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            # padding = 1 「 same padding = (kernel size -1)/2 」
             nn.ReLU(),
             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -182,7 +202,7 @@ class Res_UNet(nn.Module):
             nn.ReLU(),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-
+# -4
             nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
@@ -190,13 +210,15 @@ class Res_UNet(nn.Module):
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
 
-            nn.Conv2d(64, out_channels, kernel_size=1, padding=1),
+            nn.Conv2d(64, out_channels, kernel_size=1, stride=1, padding=0),
             # nn.Sigmoid() # 若我loss function選擇使用 BCEWithLogitsLoss則可以不用加上這一層，因此損失函數已經自動應用Sigmoid函數了
         )
 
     def forward(self, x):
         x = self.resnet_encoder(x)
+        # print(x.shape)
         x = self.decoder_block(x)
+        # print(x.shape)
         return x
     def save_TrainedModel(self, path):
         model_path = os.path.join(path, "Semantic_Segmentation.pt")
@@ -210,9 +232,69 @@ class Res_UNet(nn.Module):
         return model
 
 
+
 if __name__ == "__main__":
-    input_tensor = torch.randn(1, 3, 1024, 1024)
+    import matplotlib.pyplot as plt
+    path = f"{os.getcwd()}"
+    path = os.path.join(path, "resize_dataset")
+    path = os.path.join(path, "masked")
 
-    model = UNet_nonTransferL(3, 2)
+    file_path = os.path.join(path, "0_1.png")
+    print(file_path)
 
-    out = model(input_tensor)
+    img = cv2.imread(file_path)
+    img2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # r,g,b = cv2.split(img)
+    # img3 = cv2.merge((r,g))
+
+
+    print(img.shape)
+    print(img2.shape)
+    # print(img3.shape)
+
+    plt.imshow(img)
+    plt.title("src")
+    plt.show()
+
+    plt.imshow(img2)
+    plt.title("src bgr to gray")
+    plt.show()
+
+    """plt.imshow(img3)
+    plt.title("src bgr to rgb")
+    plt.show()"""
+
+    # cv2.imshow("src",img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    #
+    # cv2.imshow("src bgr to rgb", img2)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
+
+
+
+
+
+# if __name__ == "__main__":
+#     input_tensor = torch.randn(1, 3, 1024, 1024)
+#     print(input_tensor.shape)
+#     out = input_tensor[:,0,:,:]
+#     print(out)
+#     print(out.shape)
+#
+#     """resnet = models.resnet50(pretrained = True)
+#     print(len(list(resnet.children())))
+#     # print(list(resnet.named_children()))
+#     for name, layer in resnet.named_children():
+#         # if isinstance(layer, torch.nn.Conv2d):
+#         print(name)
+#     sys.exit()"""
+#
+#     # model = UNet_nonTransferL(3, 2)
+#     model = Res_UNet(2)
+#     # print(model)
+#
+#     out = model(input_tensor)
