@@ -3,7 +3,7 @@ from glob import glob
 
 import torch.cuda
 from torch.backends import cudnn
-
+import numpy as np
 from UNet_model import UNet_nonTransferL, SegmentationDatasets, Res_UNet
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler, SGD
@@ -62,6 +62,18 @@ def train_step(model, optimizer, criterion, dataloader):
 
         outputs = model(src_imgs)
         target_labels = target_imgs[:, 0, :, :]
+
+        # image = outputs[0, :, :, :]
+        # image_np = torch.transpose(image, 0, 2)
+        # print(image_np.shape)
+        # plt.imshow(image_np.detach().cpu().numpy(), cmap=None)
+        # plt.axis("off")
+        # plt.show()
+        #
+        # cv2.imshow("rgb image",image_np)
+        # cv2.waitkey(0)
+        # cv2.destropAllWindows()
+
         predict_labels = torch.argmax(outputs, dim=1)
         total_pixels += outputs.numel()  # 計算總pixel 數值
         correct_pixels += (predict_labels == target_labels).sum().item()
@@ -89,11 +101,46 @@ def test_step(model, dataloader, criterion):
         model.eval()
         for batch_images, batch_targets in dataloader:
             src_imgs = batch_images.to(device, dtype=torch.float32)
+
+            batch_images_plt = batch_images[0,:,:,:]
+            batch_images_plt = batch_images_plt.detach().numpy()
+            batch_images_plt = np.transpose(batch_images_plt, (1,2,0))
+            plt.imshow(batch_images_plt, cmap=None)
+            plt.title("src(batch)")
+            plt.axis("off")
+            plt.show()
+
             target_imgs = batch_targets.to(device, dtype=torch.float32) # long
             target_labels = target_imgs[:, 0, :, :]
 
             outputs = model(src_imgs)
-            plt.plot(outputs)
+
+            src_image = src_imgs[0,:,:,:]
+            src_image = src_image.detach().cpu().numpy()
+            src_image = np.transpose(src_image, (1,2,0))
+            src_image.astype(np.uint8)
+            print(src_image.shape)
+            plt.imshow(src_image, cmap=None, vmin=0, vmax=1)
+            plt.title("src")
+            plt.axis("off")
+            plt.show()
+
+
+            cv2.imshow("rgb image", src_image)
+            cv2.waitKey(0)
+            cv2.destropAllWindows()
+
+
+
+            """image = outputs[0,:,:,:]
+            image_np = image.detach().cpu().numpy()
+            plt.imshow(image_np[0], cmap='gray')
+            plt.axis("off")
+            plt.show()
+
+            plt.imshow(image_np[1], cmap='gray')
+            plt.axis("off")
+            plt.show()"""
 
             loss = criterion(outputs, target_imgs)
 
