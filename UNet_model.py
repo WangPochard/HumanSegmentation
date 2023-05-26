@@ -5,8 +5,9 @@ import sys
 import torch
 from torch.utils.data import Dataset
 from torch import nn
-from torchvision import models
+from torchvision import models, transforms
 import cv2
+from PIL import Image
 
 # 查看model structure，觀察整個ResNET中做了幾次downsampling & 縮小特徵圖像尺寸(Conv2d stride>2)
 # resnet = models.resnet50(pretrained=True)
@@ -15,7 +16,15 @@ import cv2
 #     print(name)
 #
 # sys.exit()
+def custom_collate(batch):
+    images, labels = zip(*batch)
 
+    # 转换图像为张量
+    transform = transforms.ToTensor()
+    images = [transform(image) for image in images]
+    labels = [transform(label) for label in labels]
+
+    return images, labels
 class SegmentationDatasets(Dataset):
     def __init__(self, image_paths, target_paths, transform=None):
         """
@@ -35,11 +44,13 @@ class SegmentationDatasets(Dataset):
         if self.transform:
             image, target = self.transform(image, target)
 
-        image = torch.from_numpy(image.transpose((2, 0, 1))).float()
+        """image = torch.from_numpy(image.transpose((2, 0, 1))).float()"""
+        image = Image.fromarray(image)
         # print(image.shape, "\t", type(image))
         # print(target.shape, "\t", type(target))
 
-        target = torch.from_numpy(target.transpose((2, 0, 1))).float()
+        """target = torch.from_numpy(target.transpose((2, 0, 1))).float()"""
+        target = Image.fromarray(target)
 
         # target = torch.tensor(target)
         # target = target.unsqueeze(0)
@@ -233,8 +244,97 @@ class Res_UNet(nn.Module):
 
 
 
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    import torchvision.transforms.functional as TF
+    import numpy as np
+    from glob import glob
+    from torch.utils.data import DataLoader
+    path = os.path.join(os.getcwd(), "resize_dataset")
+    src_path = os.path.join(path, "src")
+    target_path = os.path.join(path, "masked")
+
+    src_paths = glob(os.path.join(src_path, '*.png'))
+    target_paths = glob(os.path.join(target_path, '*.png'))
+
+    print(src_paths)
+
+    dataset = SegmentationDatasets(image_paths=src_paths, target_paths=target_paths)
+    train_size = int(0.9 * len(dataset))
+    test_size = len(dataset) - train_size
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])  # 根据需要划分训练集和测试集
+    train_dataloader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=custom_collate)
+    test_dataloader = DataLoader(test_dataset, batch_size=8, shuffle=False, collate_fn=custom_collate)
+
+    data_iter = iter(train_dataloader)
+    for images, labels in data_iter:
+
+        img = images[0]
+
+        img_np = TF.to_pil_image(img)
+        img_np = TF.to_grayscale(img_np)
+        img_np = TF.to_tensor(img_np)
+        img_np = img_np.numpy()
+        img_np = np.transpose(img_np, (1, 2, 0))
+
+        plt.imshow(img_np, cmap="gray")
+        plt.imshow(img_np)
+        plt.title(f"iter image")
+        plt.axis('off')
+        plt.show()
+
+        img = labels[0]
+
+        img_np = TF.to_pil_image(img)
+        img_np = TF.to_grayscale(img_np)
+        img_np = TF.to_tensor(img_np)
+        img_np = img_np.numpy()
+        img_np = np.transpose(img_np, (1, 2, 0))
+
+        plt.imshow(img_np, cmap="gray")
+        plt.imshow(img_np)
+        plt.title(f"iter image")
+        plt.axis('off')
+        plt.show()
+        break
+
+    data_iter = iter(test_dataloader)
+    for images, labels in data_iter:
+        img = images[0]
+
+        img_np = TF.to_pil_image(img)
+        img_np = TF.to_grayscale(img_np)
+        img_np = TF.to_tensor(img_np)
+        img_np = img_np.numpy()
+        img_np = np.transpose(img_np, (1, 2, 0))
+
+        plt.imshow(img_np, cmap="gray")
+        plt.imshow(img_np)
+        plt.title(f"iter image")
+        plt.axis('off')
+        plt.show()
+
+        img = labels[0]
+
+        img_np = TF.to_pil_image(img)
+        img_np = TF.to_grayscale(img_np)
+        img_np = TF.to_tensor(img_np)
+        img_np = img_np.numpy()
+        img_np = np.transpose(img_np, (1, 2, 0))
+
+        plt.imshow(img_np, cmap="gray")
+        plt.imshow(img_np)
+        plt.title(f"iter image")
+        plt.axis('off')
+        plt.show()
+        break
+    sys.exit()
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    import torchvision.transforms.functional as TF
+    import numpy as np
     path = f"{os.getcwd()}"
     path = os.path.join(path, "resize_dataset")
     path = os.path.join(path, "masked")
@@ -259,6 +359,23 @@ if __name__ == "__main__":
 
     plt.imshow(img2)
     plt.title("src bgr to gray")
+    plt.show()
+
+
+    # img = np.transpose(img, (1,2,0))
+    # img = torch.tensor(img)
+    print(img.shape)
+
+    img_np = TF.to_pil_image(img)
+    img_np = TF.to_grayscale(img_np)
+    img_np = TF.to_tensor(img_np)
+    img_np = img_np.numpy()
+    img_np = np.transpose(img_np, (1, 2, 0))
+
+    plt.imshow(img_np, cmap="gray")
+    plt.imshow(img_np)
+    plt.title(f"")
+    plt.axis('off')
     plt.show()
 
     """plt.imshow(img3)

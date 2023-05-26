@@ -8,6 +8,7 @@ import numpy as np
 import glob
 import json
 import cv2
+import matplotlib.pyplot as plt
 
 try:
     os.mkdir(f"{os.getcwd()}/resize_dataset/")
@@ -28,7 +29,7 @@ def get_json_files(path):
     df_FileName["img_1"] = df_FileName["img_0"]
     df_FileName["img_0"] = df_FileName["img_0"].apply(lambda x: f"0_{x}")
     df_FileName["img_1"] = df_FileName["img_1"].apply(lambda x: f"1_{x}")
-    print(df_FileName)
+    # print(df_FileName)
     return json_files, df_FileName
 
 def MaskedImage_Save(src_img, src_JsonParam, path):
@@ -50,7 +51,10 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
         # arr_fileColor = np.array(df["fillColor"].iloc[0], np.int32)
         # Create 一個 value為0的 img_mat
         img_zero = np.zeros(src_img.shape, dtype=np.uint8)
+        img_zero = cv2.cvtColor(img_zero, cv2.COLOR_BGR2RGB)
         masked_img = cv2.fillPoly(img_zero, [arr_pts], color=(0, 255, 0))
+        masked_img = cv2.polylines(masked_img, [arr_pts], isClosed=True,  color=(255, 255, 255), thickness=5)
+
         # print(fileName)
 # Processing Steps
     # 1. resize image

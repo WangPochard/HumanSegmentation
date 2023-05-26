@@ -8,6 +8,7 @@ from UNet_model import UNet_nonTransferL, SegmentationDatasets, Res_UNet
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler, SGD
 import torchvision.transforms.functional as TF
+from torchvision import transforms
 from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss
 import torch.cuda as cuda
 import matplotlib.pyplot as plt
@@ -18,7 +19,18 @@ torch.autograd.set_detect_anomaly(True) # 梯度檢測
 cudnn.benchmark = True
 torch.cuda.set_device(0)
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+def custom_collate(batch):
+    images, labels = zip(*batch)
 
+    # 轉換圖像為張量
+    transform = transforms.ToTensor()
+    images = [transform(image) for image in images]
+    labels = [transform(label) for label in labels]
+
+    # 組合成張量批次
+    images = torch.stack(images, dim=0)
+    labels = torch.stack(labels, dim=0)
+    return images, labels
 def PlotAccLoss(abs_path, acc, loss, dataset_name, epochs):
 
     x1 = range(0, epochs)
@@ -74,7 +86,7 @@ def train_step(model, optimizer, criterion, dataloader):
     correct_pixels = 0
     for batch_images, batch_targets in dataloader:
         src_imgs = batch_images.to(device, dtype=torch.float32)
-        target_imgs = batch_targets.to(device, dtype=torch.float32)
+        target_imgs = batch_targets.to(device, dtype=torch.uint8)
 
         outputs = model(src_imgs)
         target_labels = target_imgs[:, 0, :, :]
@@ -118,15 +130,15 @@ def test_step(model, dataloader, criterion):
         for batch_images, batch_targets in dataloader:
             src_imgs = batch_images.to(device, dtype=torch.float32)
 
-            dataloader_plt(batch_images, "src image")
-            dataloader_plt(batch_targets, "src masked image")
+            # dataloader_plt(batch_images, "src image")
+            # dataloader_plt(batch_targets, "src masked image")
 
-            target_imgs = batch_targets.to(device, dtype=torch.float32) # long
+            target_imgs = batch_targets.to(device, dtype=torch.uint8) # long
             target_labels = target_imgs[:, 0, :, :]
             outputs = model(src_imgs)
             loss = criterion(outputs, target_imgs)
 
-            dataloader_plt(outputs, "predict image")
+            # dataloader_plt(outputs, "predict image")
 
             total_loss += loss.item()
             total_pixels += target_labels.numel()
@@ -162,8 +174,8 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
     train_size = int(0.9*len(dataset))
     test_size = len(dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])  # 根据需要划分训练集和测试集
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_sizes, shuffle=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_sizes, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_sizes, shuffle=True, collate_fn=custom_collate)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_sizes, shuffle=False, collate_fn=custom_collate)
 
     train_loss_all = []
     train_acc_all = []
@@ -214,9 +226,9 @@ if __name__ == "__main__":
     # sys.exit()
 
     # 超參數設定
-    lr = 1e-3
+    lr = 1e-4
     batch_sizes = 8
-    epoches = 50
+    epoches = 100
 
     Train(model, dataset, batch_sizes, epoches, learning_rate=lr)
 
