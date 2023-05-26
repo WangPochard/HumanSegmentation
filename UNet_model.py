@@ -8,6 +8,7 @@ from torch import nn
 from torchvision import models, transforms
 import cv2
 from PIL import Image
+from skimage.io import imread
 
 # 查看model structure，觀察整個ResNET中做了幾次downsampling & 縮小特徵圖像尺寸(Conv2d stride>2)
 # resnet = models.resnet50(pretrained=True)
@@ -48,10 +49,8 @@ class SegmentationDatasets(Dataset):
         image = Image.fromarray(image)
         # print(image.shape, "\t", type(image))
         # print(target.shape, "\t", type(target))
-
         """target = torch.from_numpy(target.transpose((2, 0, 1))).float()"""
         target = Image.fromarray(target)
-
         # target = torch.tensor(target)
         # target = target.unsqueeze(0)
         # print(target.shape, "\t", type(target))
@@ -68,6 +67,27 @@ class SegmentationDatasets(Dataset):
         target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2RGB)
         return target_img
 
+# class SegmentationDatasets_skimage(Dataset):
+#     def __init__(self, image_paths: list, target_paths: list, transform=None):
+#         """
+#         :param image_paths: 總共的資料集路徑
+#         :param target_paths: 總共的資料集路徑
+#         :param transform:
+#         """
+#         self.image_paths = image_paths
+#         self.target_paths = target_paths
+#         self.transform = transform
+#     def __len__(self):
+#         return len(self.image_paths) # 可能是個陣列、資料表，有多個圖像路徑，是為了返回數據樣本的數量
+#     def __getitem__(self, index):
+#         image = self.image_paths[index]
+#         target = self.target_paths[index]
+#
+#         x, y = imread(image), imread(target)
+#         if self.transform is not None:
+#             x, y = self.transform(x, y)
+#         x, y = torch.from_numpy(x).type(torch.float32), torch.from_numpy(y).type(torch.long)
+#         return x, y
 
 
 class UNet_nonTransferL(nn.Module):
@@ -247,10 +267,15 @@ class Res_UNet(nn.Module):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    from matplotlib import MatplotlibDeprecationWarning
     import torchvision.transforms.functional as TF
     import numpy as np
     from glob import glob
     from torch.utils.data import DataLoader
+
+    import warnings
+    warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
+
     path = os.path.join(os.getcwd(), "resize_dataset")
     src_path = os.path.join(path, "src")
     target_path = os.path.join(path, "masked")
@@ -258,9 +283,10 @@ if __name__ == "__main__":
     src_paths = glob(os.path.join(src_path, '*.png'))
     target_paths = glob(os.path.join(target_path, '*.png'))
 
-    print(src_paths)
+    # print(src_paths)
 
     dataset = SegmentationDatasets(image_paths=src_paths, target_paths=target_paths)
+    print(dataset)
     train_size = int(0.9 * len(dataset))
     test_size = len(dataset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])  # 根据需要划分训练集和测试集
@@ -329,6 +355,8 @@ if __name__ == "__main__":
         plt.axis('off')
         plt.show()
         break
+    model = Res_UNet(3)
+    print(model)
     sys.exit()
 
 if __name__ == "__main__":
