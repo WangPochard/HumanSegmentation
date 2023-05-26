@@ -86,7 +86,7 @@ def train_step(model, optimizer, criterion, dataloader):
     correct_pixels = 0
     for batch_images, batch_targets in dataloader:
         src_imgs = batch_images.to(device, dtype=torch.float32)
-        target_imgs = batch_targets.to(device, dtype=torch.uint8)
+        target_imgs = batch_targets.to(device, dtype=torch.float32) / 255.0 # 歸一化
 
         outputs = model(src_imgs)
         target_labels = target_imgs[:, 0, :, :]
@@ -107,6 +107,8 @@ def train_step(model, optimizer, criterion, dataloader):
         correct_pixels += (predict_labels == target_labels).sum().item()
 
         optimizer.zero_grad()
+        # print(type(outputs))
+        # print(type(target_imgs))
         batch_loss = criterion(outputs, target_imgs)
 
         batch_loss.backward()
@@ -133,7 +135,7 @@ def test_step(model, dataloader, criterion):
             # dataloader_plt(batch_images, "src image")
             # dataloader_plt(batch_targets, "src masked image")
 
-            target_imgs = batch_targets.to(device, dtype=torch.uint8) # long
+            target_imgs = batch_targets.to(device, dtype=torch.float32) # long
             target_labels = target_imgs[:, 0, :, :]
             outputs = model(src_imgs)
             loss = criterion(outputs, target_imgs)
