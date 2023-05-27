@@ -5,8 +5,10 @@ import sys
 import torch
 from torch.utils.data import Dataset
 from torch import nn
+import torch.nn.functional as F
 from torchvision import models, transforms
 import cv2
+# from pre_processing import *
 from PIL import Image
 from skimage.io import imread
 
@@ -41,19 +43,21 @@ class SegmentationDatasets(Dataset):
     def __getitem__(self, index):
         image = self.load_images(index)
         target = self.load_target(index)
-
+        # 將小圖像的尺寸放大到超過目標圖像尺寸
+        if image.shape[0] < 512 or image.shape[1] < 512:
+            image = self.resize_img(image)
+            target = self.resize_img(target)
+        # 圖像裁剪
+        image = self.crop(image, 512)
+        target = self.crop(target, 512)
+        '''
+        # 調整圖像明亮度 (只需調整原始圖像就好)
+        # pixel_add = randint(-20, 20)
+        # image = change_brightness(image, pixel_add)
+        '''
         if self.transform:
             image, target = self.transform(image, target)
 
-        """image = torch.from_numpy(image.transpose((2, 0, 1))).float()"""
-        image = Image.fromarray(image)
-        # print(image.shape, "\t", type(image))
-        # print(target.shape, "\t", type(target))
-        """target = torch.from_numpy(target.transpose((2, 0, 1))).float()"""
-        target = Image.fromarray(target)
-        # target = torch.tensor(target)
-        # target = target.unsqueeze(0)
-        # print(target.shape, "\t", type(target))
         return image, target
     def load_images(self, index):
         img = cv2.imread(self.image_paths[index])
@@ -66,6 +70,40 @@ class SegmentationDatasets(Dataset):
         # target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
         target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2RGB)
         return target_img
+
+    def crop(self, img, crop_size):
+        img = np.array(img)
+        dim1 = (int(img.shape[0])-int(crop_size))//2
+        dim2 = (int(img.shape[1])-int(crop_size))//2
+        crop_image = img[dim1:(dim1+crop_size), dim2:(dim2+crop_size)]
+        return crop_image
+    def resize_img(self, img, target_size=512):
+        height, width = img.shape[:2]
+        if height>width:
+            dim = width
+        else:
+            dim = height
+        scale = int(target_size//dim) + 1
+        resize_img = cv2.resize(img, (width*scale, height*scale))
+        return resize_img
+    '''def resize_img_inter(self, img, target_size=512):
+        # 用雙線性插值的方式做圖像放大 (但會有嚴重失真)
+        img_tensor = torch.from_numpy(img).unsqueeze(0).float()
+
+        # 計算尺寸比例
+        height, width = img.shape[:2]
+        scale = max(target_size / height, target_size / width)
+
+        # 計算目標尺寸
+        target_H = int(height * scale)
+        target_W = int(width * scale)
+
+        # 使用雙線性插值，進行圖像放大
+        resize_img = F.interpolate(img_tensor, size=(target_H, target_W),
+                                   mode='bilinear', align_corners=False)
+
+        resize_img = resize_img.squeeze().numpy()
+        return resize_img'''
 
 # class SegmentationDatasets_skimage(Dataset):
 #     def __init__(self, image_paths: list, target_paths: list, transform=None):
@@ -292,6 +330,12 @@ if __name__ == "__main__":
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])  # 根据需要划分训练集和测试集
     train_dataloader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=custom_collate)
     test_dataloader = DataLoader(test_dataset, batch_size=8, shuffle=False, collate_fn=custom_collate)
+
+    min_height = min(image.shape[0] for image, label in train_dataset)
+    min_width = min(image.shape[1] for image, label in train_dataset)
+    print(min_height,"\t", min_width)
+
+    # sys.exit()
 
     data_iter = iter(train_dataloader)
     for images, labels in data_iter:

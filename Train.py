@@ -6,7 +6,8 @@ from torch.backends import cudnn
 import numpy as np
 from UNet_model import UNet_nonTransferL, SegmentationDatasets, Res_UNet
 from torch.utils.data import DataLoader
-from torch.optim import Adam, lr_scheduler, SGD
+from torch.optim import Adam, lr_scheduler, SGD, RMSprop
+from torch.autograd import Variable
 import torchvision.transforms.functional as TF
 from torchvision import transforms
 from torch.nn import BCELoss, BCEWithLogitsLoss, CrossEntropyLoss
@@ -19,6 +20,8 @@ torch.autograd.set_detect_anomaly(True) # 梯度檢測
 cudnn.benchmark = True
 torch.cuda.set_device(0)
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
+
 def custom_collate(batch):
     images, labels = zip(*batch)
 
@@ -85,8 +88,11 @@ def train_step(model, optimizer, criterion, dataloader):
     total_pixels = 0
     correct_pixels = 0
     for batch_images, batch_targets in dataloader:
-        src_imgs = batch_images.to(device, dtype=torch.float32)
-        target_imgs = batch_targets.to(device, dtype=torch.float32) / 255.0 # 歸一化
+        # src_imgs = batch_images.to(device, dtype=torch.float32)
+        # target_imgs = batch_targets.to(device, dtype=torch.float32) / 255.0 # 歸一化
+
+        src_imgs = Variable(batch_images.cuda())
+        target_imgs = Variable(batch_targets.cuda())
 
         outputs = model(src_imgs)
         target_labels = target_imgs[:, 0, :, :]
@@ -130,12 +136,15 @@ def test_step(model, dataloader, criterion):
     with torch.no_grad():
         model.eval()
         for batch_images, batch_targets in dataloader:
-            src_imgs = batch_images.to(device, dtype=torch.float32)
+            # src_imgs = batch_images.to(device, dtype=torch.float32)
+
+            src_imgs = Variable(batch_images.cuda())
+            target_imgs = Variable(batch_targets.cuda())
 
             # dataloader_plt(batch_images, "src image")
             # dataloader_plt(batch_targets, "src masked image")
 
-            target_imgs = batch_targets.to(device, dtype=torch.float32) # long
+            # target_imgs = batch_targets.to(device, dtype=torch.float32) / 255.0 # long
             target_labels = target_imgs[:, 0, :, :]
             outputs = model(src_imgs)
             loss = criterion(outputs, target_imgs)
@@ -168,7 +177,7 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # CrossEntropyLoss : Softmax
     criterion = CrossEntropyLoss()# BCEWithLogitsLoss()# BCELoss()
     criterion = criterion.cuda().to(device, dtype=torch.float)
-    optimizer = Adam(model.parameters(), lr = learning_rate)#, momentum=0.9) # Adam
+    optimizer = RMSprop(model.parameters(), lr = learning_rate)#, momentum=0.9) # Adam
     # scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
     scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.5)
 

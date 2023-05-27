@@ -60,12 +60,12 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
     # 1. resize image
     # 2. up sampling (方向轉換(平移)、隨機翻轉、旋轉)
         Src_images = dict()
-        src_img = cv2.resize(src_img, (widgh, height))
+        # src_img = cv2.resize(src_img, (widgh, height))
         Src_images.update({f"0_{fileName}": src_img})
         Src_images.update({f"1_{fileName}": cv2.flip(src_img, 1)}) # 水平翻轉
 
         Mask_images = dict()
-        masked_img = cv2.resize(masked_img, (widgh, height))
+        # masked_img = cv2.resize(masked_img, (widgh, height))
         Mask_images.update({f"0_{fileName}": masked_img})
         Mask_images.update({f"1_{fileName}": cv2.flip(masked_img, 1)}) # 水平翻轉
         # Save image
