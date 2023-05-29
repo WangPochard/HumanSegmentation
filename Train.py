@@ -95,6 +95,7 @@ def train_step(model, optimizer, criterion, dataloader):
         target_imgs = Variable(batch_targets.cuda())
 
         outputs = model(src_imgs)
+        batch_loss = criterion(outputs, target_imgs)
         target_labels = target_imgs[:, 0, :, :]
 
         # image = outputs[0, :, :, :]
@@ -115,7 +116,7 @@ def train_step(model, optimizer, criterion, dataloader):
         optimizer.zero_grad()
         # print(type(outputs))
         # print(type(target_imgs))
-        batch_loss = criterion(outputs, target_imgs)
+        # batch_loss = criterion(outputs, target_imgs)
 
         batch_loss.backward()
         optimizer.step()

@@ -62,29 +62,41 @@ def MaskedImage_Save(src_img, src_JsonParam, path):
         Src_images = dict()
         # src_img = cv2.resize(src_img, (widgh, height))
         Src_images.update({f"0_{fileName}": src_img})
-        Src_images.update({f"1_{fileName}": cv2.flip(src_img, 1)}) # 水平翻轉
+        src_flip = cv2.flip(src_img, 1)
+        Src_images.update({f"1_{fileName}": src_flip}) # 水平翻轉
+        # 上下翻轉
+        Src_images.update({f"2_{fileName}": cv2.flip(src_img, 0)})
+        Src_images.update({f"3_{fileName}": cv2.flip(src_flip, 0)})
+        # 對角翻轉
+        Src_images.update({f"4_{fileName}": cv2.flip(src_img.transpose(1,0,2), 1)})
+        Src_images.update({f"5_{fileName}": cv2.flip(src_flip.transpose(1,0,2), 1)})
 
         Mask_images = dict()
         # masked_img = cv2.resize(masked_img, (widgh, height))
         Mask_images.update({f"0_{fileName}": masked_img})
-        Mask_images.update({f"1_{fileName}": cv2.flip(masked_img, 1)}) # 水平翻轉
+        flip_rl = cv2.flip(masked_img, 1)# 水平翻轉
+        Mask_images.update({f"1_{fileName}": flip_rl}) # 水平翻轉儲存
+        # 上下翻轉
+        Mask_images.update({f"2_{fileName}": cv2.flip(masked_img, 0)})
+        Mask_images.update({f"3_{fileName}": cv2.flip(flip_rl, 0)})
+        # 對角翻轉
+        Mask_images.update({f"4_{fileName}": cv2.flip(masked_img.transpose(1,0,2), 1)})
+        Mask_images.update({f"5_{fileName}": cv2.flip(flip_rl.transpose(1,0,2), 1)})
         # Save image
         for ImgName in Src_images.keys():
             # print(f"{path}src/{ImgName}")
             # print(f"FileName:\t{ImgName}")
             SrcImg = Src_images[ImgName]
             # print(type(SrcImg))
+
             cv2.imwrite(f"{path}src/{ImgName}", SrcImg)  # resize source image
+
         for ImgName in Mask_images.keys():
             # print(f"{path}src/{ImgName}")
             MaskImg = Mask_images[ImgName]
             cv2.imwrite(f"{path}masked/{ImgName}", MaskImg)  # resize masked image
 
-    # 3. 資料集切割(分另一個.py檔處理)
-
-        # cv2.imwrite(f"{path}/src/{fileName}",src_image) # resize source image
-        # cv2.imwrite(f"{path}/masked/{fileName}",masked_image) # resize masked image
-
+    #
         msg = "Success!!!"
     except:
         print(f"{fileName}\t{src_JsonParam.columns}\t{src_JsonParam['shapes'].iloc[0]}")

@@ -11,6 +11,7 @@ import cv2
 # from pre_processing import *
 from PIL import Image
 from skimage.io import imread
+import numpy as np
 
 # 查看model structure，觀察整個ResNET中做了幾次downsampling & 縮小特徵圖像尺寸(Conv2d stride>2)
 # resnet = models.resnet50(pretrained=True)
