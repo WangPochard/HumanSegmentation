@@ -82,41 +82,35 @@ def train_step(model, optimizer, criterion, dataloader):
     model.train()
 
 
-    criterion = criterion.cuda().to(device, dtype=torch.float)
+    criterion = criterion.cuda().to(device, dtype=torch.float32)
 # ------------------------------------
     total_loss = 0.0
     total_pixels = 0
     correct_pixels = 0
     for batch_images, batch_targets in dataloader:
-        # src_imgs = batch_images.to(device, dtype=torch.float32)
-        # target_imgs = batch_targets.to(device, dtype=torch.float32) / 255.0 # 歸一化
+        src_imgs = batch_images.to(device, dtype=torch.float32)
+        target_imgs = batch_targets.to(device, dtype=torch.long) / 255.0 # 歸一化
 
-        src_imgs = Variable(batch_images.cuda())
-        target_imgs = Variable(batch_targets.cuda())
+        # src_imgs = Variable(batch_images.cuda())
+        # target_imgs = Variable(batch_targets.cuda())
 
         outputs = model(src_imgs)
+        # outputs = torch.round(outputs)
+        # outputs = outputs.to(torch.long)
         batch_loss = criterion(outputs, target_imgs)
         target_labels = target_imgs[:, 0, :, :]
 
-        # image = outputs[0, :, :, :]
-        # image_np = torch.transpose(image, 0, 2)
-        # print(image_np.shape)
-        # plt.imshow(image_np.detach().cpu().numpy(), cmap=None)
-        # plt.axis("off")
-        # plt.show()
-        #
-        # cv2.imshow("rgb image",image_np)
-        # cv2.waitkey(0)
-        # cv2.destropAllWindows()
-
         predict_labels = torch.argmax(outputs, dim=1)
         total_pixels += outputs.numel()  # 計算總pixel 數值
+        print(predict_labels.shape)
+        print(target_labels.shape)
+        # print(type(outputs))
+        # print(outputs)
+        # print(type(predict_labels))
+        # print(predict_labels)
         correct_pixels += (predict_labels == target_labels).sum().item()
 
         optimizer.zero_grad()
-        # print(type(outputs))
-        # print(type(target_imgs))
-        # batch_loss = criterion(outputs, target_imgs)
 
         batch_loss.backward()
         optimizer.step()
@@ -137,25 +131,29 @@ def test_step(model, dataloader, criterion):
     with torch.no_grad():
         model.eval()
         for batch_images, batch_targets in dataloader:
-            # src_imgs = batch_images.to(device, dtype=torch.float32)
+            src_imgs = batch_images.to(device, dtype=torch.float32)
 
-            src_imgs = Variable(batch_images.cuda())
-            target_imgs = Variable(batch_targets.cuda())
+            # src_imgs = Variable(batch_images.cuda())
+            # target_imgs = Variable(batch_targets.cuda())
 
             # dataloader_plt(batch_images, "src image")
             # dataloader_plt(batch_targets, "src masked image")
 
-            # target_imgs = batch_targets.to(device, dtype=torch.float32) / 255.0 # long
+            target_imgs = batch_targets.to(device, dtype=torch.long) / 255.0 # long
             target_labels = target_imgs[:, 0, :, :]
             outputs = model(src_imgs)
+
+            outputs = torch.round(outputs)
+            outputs = outputs.to(torch.long)
+
             loss = criterion(outputs, target_imgs)
 
             # dataloader_plt(outputs, "predict image")
 
             total_loss += loss.item()
             total_pixels += target_labels.numel()
-            predicted_labels = torch.argmax(outputs, dim=1) #, keepdim=True)
-            correct_pixels += (predicted_labels == target_labels).sum().item()
+            # predicted_labels = torch.argmax(outputs, dim=1) #, keepdim=True)
+            correct_pixels += (outputs == target_labels).sum().item()
 
         avg_loss = total_loss / len(dataloader)
         accuracy = correct_pixels / total_pixels
@@ -176,7 +174,7 @@ def Train(model, dataset, batch_sizes=16, epoches=50, learning_rate=1e-2):
 # 損失函數、優化器、scheduler(學習率調適器) 選擇
 # BCEWithLogitsLoss : default activation func - Sigmoid
 # CrossEntropyLoss : Softmax
-    criterion = CrossEntropyLoss()# BCEWithLogitsLoss()# BCELoss()
+    criterion = BCELoss()# BCEWithLogitsLoss()# CrossEntropyLoss() BCELoss()
     criterion = criterion.cuda().to(device, dtype=torch.float)
     optimizer = RMSprop(model.parameters(), lr = learning_rate)#, momentum=0.9) # Adam
     # scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5) # step_size 可以根據你的epoch大小來調整，其會自動追蹤目前是第幾個epoch來更新學習率。
@@ -231,7 +229,7 @@ if __name__ == "__main__":
     dataset = SegmentationDatasets(image_paths = src_paths, target_paths = target_paths)
     print(dataset)
 
-    model = Res_UNet(3)
+    model = Res_UNet(1)
     # model = UNet_nonTransferL(3, 2)
 
     # print(model)
@@ -239,7 +237,7 @@ if __name__ == "__main__":
 
     # 超參數設定
     lr = 1e-4
-    batch_sizes = 8
+    batch_sizes = 2
     epoches = 100
 
     Train(model, dataset, batch_sizes, epoches, learning_rate=lr)

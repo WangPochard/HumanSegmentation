@@ -59,6 +59,9 @@ class SegmentationDatasets(Dataset):
         if self.transform:
             image, target = self.transform(image, target)
 
+        target = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
+        target = np.expand_dims(target, axis=2)
+
         return image, target
     def load_images(self, index):
         img = cv2.imread(self.image_paths[index])
@@ -246,7 +249,7 @@ class Res_UNet(nn.Module):
         resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1) # torchvision 新版的pretrained model 寫法
         for param in resnet.parameters():
             param.requires_grad = False
-        self.resnet_encoder = nn.Sequential(*list(resnet.children())[:-4]) # 獲取resnet 的encoder區塊 -2
+        self.resnet_encoder = nn.Sequential(*list(resnet.children())[:-5]) # 獲取resnet 的encoder區塊 -2
 
         # FCN : 透過反捲積做upsampling 到原始圖像大小
         self.decoder_block = nn.Sequential(
@@ -258,21 +261,21 @@ class Res_UNet(nn.Module):
             # nn.ReLU(),
             # nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
             # nn.ReLU(),
-
-            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-
+# -4
+#             nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),
+#             nn.ReLU(),
+#             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+#             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+# -5
             nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
             nn.ReLU(),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-# -4
+
             nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
@@ -305,6 +308,22 @@ class Res_UNet(nn.Module):
 
 
 if __name__ == "__main__":
+    resnet = models.resnet50(pretrained = True)
+    print(len(list(resnet.children())))
+    # print(list(resnet.named_children()))
+    for name, layer in resnet.named_children():
+        # if isinstance(layer, torch.nn.Conv2d):
+        print(name)
+
+    model = Res_UNet(1)
+    print(len(list(model.children())))
+
+    for name, layer in model.named_children():
+        # print(name)
+        for n, l in layer.named_children():
+            print(f"{n}:\t",l)
+    sys.exit()
+
     import matplotlib.pyplot as plt
     from matplotlib import MatplotlibDeprecationWarning
     import torchvision.transforms.functional as TF
@@ -417,7 +436,11 @@ if __name__ == "__main__":
 
     img = cv2.imread(file_path)
     img2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
+    print(img.shape)
+    print(img2.shape)
+    img2 = np.expand_dims(img2, axis=2)
+    print(img2.shape)
+    sys.exit()
     # r,g,b = cv2.split(img)
     # img3 = cv2.merge((r,g))
 
